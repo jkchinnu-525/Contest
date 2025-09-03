@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 import jwt from "jsonwebtoken";
+import cookieParser from "cookie-parser";
 import nodemailer from "nodemailer";
 import { PrismaClient } from "./generated/prisma/index.js";
 const transporter = nodemailer.createTransport({
@@ -13,8 +14,14 @@ const transporter = nodemailer.createTransport({
 const prisma = new PrismaClient();
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || "123";
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:3000"],
+    credentials: true,
+  }),
+);
 app.use(express.json());
+app.use(cookieParser());
 
 const sendMail = async (to: string, link: string) => {
   await transporter.sendMail({
@@ -49,8 +56,15 @@ app.post("/register", async (req, res) => {
   const link = `http://localhost:3000/verify?token=${token}`;
 
   await sendMail(email, link);
-
   res.json({ message: "Verification email sent" });
+});
+
+app.post("/signin", async (req: any, res) => {
+  const token = req.headers.authorization.split("")[1];
+  if (!token) {
+    res.json({ error: "Not Authorized" });
+  }
+  res.json({ message: "Here are the user Details" });
 });
 
 app.get("/verify", async (req, res) => {
@@ -61,15 +75,17 @@ app.get("/verify", async (req, res) => {
   }
 
   try {
-    // Decode & verify JWT
-    const decoded = jwt.verify(token, JWT_SECRET) as {email: string; userId: number};
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      email: string;
+      userId: number;
+    };
 
-    // Update user as verified
     await prisma.user.update({
       where: { email: decoded.email },
       data: { verified: true },
     });
 
+    res.cookie("cookie", token, { httpOnly: true });
     res.send("Email verified successfully!");
   } catch (err) {
     console.error(err);
