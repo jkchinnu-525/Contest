@@ -1,9 +1,12 @@
 import cors from "cors";
+import { createClient } from "redis";
+import { v4 as uuid } from "uuid";
 import express from "express";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 import nodemailer from "nodemailer";
 import { PrismaClient } from "./generated/prisma/index.js";
+import type { Order } from "./types/index.js";
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -11,6 +14,8 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS,
   },
 });
+const client = createClient({ url: "redis://localhost:6379" });
+await client.connect();
 const prisma = new PrismaClient();
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || "123";
@@ -20,6 +25,7 @@ app.use(
     credentials: true,
   }),
 );
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -90,6 +96,27 @@ app.get("/verify", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(400).json({ error: "Invalid or expired token" });
+  }
+});
+
+app.post("/trade/create", async (req, res) => {
+  const { asset, type, margin, leverage, slippage }: Order = req.body;
+  if (!asset || margin || !leverage || !slippage) {
+    return res.json({
+      message: "Please enter all the details to place the order",
+    });
+  }
+  try {
+    const id = await client.xAdd("trade-stream", "*", {
+      asset: asset,
+      type: type,
+      margin: margin.toString(),
+      leverage: leverage.toString(),
+      slippage: slippage.toString(),
+    });
+    res.json({ message: "Added to stream", id });
+  } catch (error) {
+    console.log("Error while adding to stream", error);
   }
 });
 
