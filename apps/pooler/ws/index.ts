@@ -60,7 +60,7 @@ async function connectRedis() {
           const transformedData = transformData(latestPrices, decimal);
           console.log(transformedData);
           for (const trade of transformedData) {
-            await publisher.xAdd("trade-stream", "*", {
+            await publisher.xAdd("price-updates-stream", "*", {
               asset: trade.asset ?? "",
               price: trade.price.toString(),
               decimal: trade.decimal.toString(),

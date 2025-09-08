@@ -15,7 +15,45 @@ datasource db {
 }
 
 model User {
-  id       Int     @id @default(autoincrement())
-  email    String  @unique
-  verified Boolean @default(false)
+  id             String          @id @default(cuid())
+  email          String          @unique
+  verified       Boolean         @default(false)
+  balance        Float           @default(5000.0)
+  existingTrades ExistingTrade[]
+}
+
+model ExistingTrade {
+  id         String    @id @default(cuid())
+  userId     String
+  assetId    String
+  openPrice  Float
+  closePrice Float?
+  leverage   Float
+  margin     Float
+  quantity   Float
+  pnl        Float?
+  liquidated Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  closedAt   DateTime?
+
+  user  User  @relation(fields: [userId], references: [id])
+  asset Asset @relation(fields: [assetId], references: [id])
+}
+
+model Asset {
+  id             String          @id @default(cuid())
+  symbol         String          @unique
+  name           String
+  imageUrl       String?
+  decimals       Int             @default(6)
+  createdAt      DateTime        @default(now())
+  existingTrades ExistingTrade[]
+}
+
+model EngineSnapshot {
+  id          String   @id @default(cuid())
+  open_orders Json
+  balances    Json
+  offsetId    Json
+  createdAt   DateTime @default(now())
 }
